@@ -24,7 +24,8 @@ testp:
 
 testj:
 	echo Testing javascript implementation...
-	./tests/run-tests
+	#./tests/run-tests
+	node tests/beautify-tests.js
 	echo
 
 edit:
