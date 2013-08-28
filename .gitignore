@@ -5,4 +5,6 @@
 # python compiler output
 *.pyc
 
+# NodeJS/NPM stuff
+node_modules
 
