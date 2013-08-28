@@ -129,7 +129,13 @@ class TestJSBeautifier(unittest.TestCase):
         bt("a = 1;\n // comment", "a = 1;\n// comment");
         bt('a = [-1, -1, -1]');
 
-        bt('o = [{a:b},{c:d}]', 'o = [{\n    a: b\n}, {\n    c: d\n}]');
+        # The exact formatting these should have is open for discussion, but they are at least reasonable
+        bt('a = [ // comment\n    -1, -1, -1\n]');
+        bt('var a = [ // comment\n    -1, -1, -1\n]');
+        bt('a = [ // comment\n    -1, // comment\n    -1, -1\n]');
+        bt('var a = [ // comment\n    -1, // comment\n    -1, -1\n]');
+
+        bt('o = [{a:b},{c:d}]', 'o = [{\n        a: b\n    }, {\n        c: d\n    }\n]');
 
         bt("if (a) {\n    do();\n}"); # was: extra space appended
 
@@ -183,7 +189,7 @@ class TestJSBeautifier(unittest.TestCase):
         test_fragment('/incomplete-regex');
 
         test_fragment('{a:1},{a:2}', '{\n    a: 1\n}, {\n    a: 2\n}');
-        test_fragment('var ary=[{a:1}, {a:2}];', 'var ary = [{\n    a: 1\n}, {\n    a: 2\n}];');
+        test_fragment('var ary=[{a:1}, {a:2}];', 'var ary = [{\n        a: 1\n    }, {\n        a: 2\n    }\n];');
 
         test_fragment('{a:#1', '{\n    a: #1'); # incomplete
         test_fragment('{a:#', '{\n    a: #'); # incomplete
@@ -219,6 +225,14 @@ class TestJSBeautifier(unittest.TestCase):
         bt('{foo();++bar;}', '{\n    foo();\n    ++bar;\n}');
         bt('{--bar;}', '{\n    --bar;\n}');
         bt('{++bar;}', '{\n    ++bar;\n}');
+
+        # Handling of newlines around unary ++ and -- operators
+        bt('{foo\n++bar;}', '{\n    foo\n    ++bar;\n}');
+        bt('{foo++\nbar;}', '{\n    foo++\n    bar;\n}');
+
+        # This is invalid, but harder to guard against. Issue #203.
+        bt('{foo\n++\nbar;}', '{\n    foo\n    ++\n    bar;\n}');
+
 
         # regexps
         bt('a(/abc\\/\\/def/);b()', "a(/abc\\/\\/def/);\nb()");
@@ -295,7 +309,7 @@ class TestJSBeautifier(unittest.TestCase):
         bt("var a2, b2, c2, d2 = 0, c = function() {},\nd = '';", "var a2, b2, c2, d2 = 0,\n    c = function() {},\n    d = '';");
         bt('var o2=$.extend(a);function(){alert(x);}', 'var o2 = $.extend(a);\n\nfunction() {\n    alert(x);\n}');
 
-        bt('{"x":[{"a":1,"b":3},7,8,8,8,8,{"b":99},{"a":11}]}', '{\n    "x": [{\n        "a": 1,\n        "b": 3\n    },\n    7, 8, 8, 8, 8, {\n        "b": 99\n    }, {\n        "a": 11\n    }]\n}');
+        bt('{"x":[{"a":1,"b":3},7,8,8,8,8,{"b":99},{"a":11}]}', '{\n    "x": [{\n            "a": 1,\n            "b": 3\n        },\n        7, 8, 8, 8, 8, {\n            "b": 99\n        }, {\n            "a": 11\n        }\n    ]\n}');
 
         bt('{"1":{"1a":"1b"},"2"}', '{\n    "1": {\n        "1a": "1b"\n    },\n    "2"\n}');
         bt('{a:{a:b},c}', '{\n    a: {\n        a: b\n    },\n    c\n}');
@@ -353,12 +367,12 @@ class TestJSBeautifier(unittest.TestCase):
 
 
         bt('var x = [{}\n]', 'var x = [{}\n]');
-        bt('var x = [{foo:bar}\n]', 'var x = [{\n    foo: bar\n}\n]');
-        bt("a = ['something',\n'completely',\n'different'];\nif (x);");
+        bt('var x = [{foo:bar}\n]', 'var x = [{\n        foo: bar\n    }\n]');
+        bt("a = ['something',\n    'completely',\n    'different'];\nif (x);");
         bt("a = ['a','b','c']", "a = ['a', 'b', 'c']");
         bt("a = ['a',   'b','c']", "a = ['a', 'b', 'c']");
 
-        bt("x = [{'a':0}]", "x = [{\n    'a': 0\n}]");
+        bt("x = [{'a':0}]", "x = [{\n        'a': 0\n    }]");
 
         bt('{a([[a1]], {b;});}', '{\n    a([[a1]], {\n        b;\n    });\n}');
 
@@ -377,6 +391,7 @@ class TestJSBeautifier(unittest.TestCase):
         bt("throw {}")
         bt("throw {\n    foo;\n}")
 
+        bt('//case 1\nif (a == 1)\n{}\n//case 2\nelse if (a == 2)\n{}');
         bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a)\n{\n    b;\n}\nelse\n{\n    c;\n}');
         test_fragment('if (foo) {', 'if (foo)\n{');
         test_fragment('foo {', 'foo\n{');
@@ -397,6 +412,7 @@ class TestJSBeautifier(unittest.TestCase):
 
         self.options.brace_style = 'collapse';
 
+        bt('//case 1\nif (a == 1) {}\n//case 2\nelse if (a == 2) {}');
         bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a) {\n    b;\n} else {\n    c;\n}');
         test_fragment('if (foo) {', 'if (foo) {');
         test_fragment('foo {', 'foo {');
@@ -411,6 +427,7 @@ class TestJSBeautifier(unittest.TestCase):
 
         self.options.brace_style = "end-expand";
 
+        bt('//case 1\nif (a == 1) {}\n//case 2\nelse if (a == 2) {}');
         bt('if(1){2}else{3}', "if (1) {\n    2\n}\nelse {\n    3\n}");
         bt('try{a();}catch(b){c();}finally{d();}', "try {\n    a();\n}\ncatch (b) {\n    c();\n}\nfinally {\n    d();\n}");
         bt('if(a){b();}else if(c) foo();', "if (a) {\n    b();\n}\nelse if (c) foo();");
@@ -673,6 +690,23 @@ class TestJSBeautifier(unittest.TestCase):
 
         bt('if (foo) if (bar) if (baz) whee();\na();');
         bt('if (foo) a()\nif (bar) if (baz) whee();\na();');
+        bt('if (options)\n' +
+           '    for (var p in options)\n' +
+           '        this[p] = options[p];',
+           'if (options) for (var p in options) this[p] = options[p];');
+
+        bt('function f(a, b, c,\nd, e) {}',
+            'function f(a, b, c, d, e) {}');
+
+        bt('function f(a,b) {if(a) b()}function g(a,b) {if(!a) b()}',
+            'function f(a, b) {\n    if (a) b()\n}\nfunction g(a, b) {\n    if (!a) b()\n}');
+        bt('function f(a,b) {if(a) b()}\n\n\n\nfunction g(a,b) {if(!a) b()}',
+            'function f(a, b) {\n    if (a) b()\n}\n\nfunction g(a, b) {\n    if (!a) b()\n}');
+        # This is not valid syntax, but still want to behave reasonably and not side-effect
+        bt('(if(a) b())(if(a) b())',
+            '(\nif (a) b())(\nif (a) b())');
+        bt('(if(a) b())\n\n\n(if(a) b())',
+            '(\nif (a) b())\n(\nif (a) b())');
 
         bt("if\n(a)\nb();", "if (a) b();");
         bt('var a =\nfoo', 'var a = foo');
@@ -685,6 +719,9 @@ class TestJSBeautifier(unittest.TestCase):
         bt('if(a &&\nb\n||\nc\n||d\n&&\ne) e = f', 'if (a && b || c || d && e) e = f');
         bt('if(a &&\n(b\n||\nc\n||d)\n&&\ne) e = f', 'if (a && (b || c || d) && e) e = f');
         test_fragment('\n\n"x"', '"x"');
+        bt('a = 1;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nb = 2;',
+            'a = 1;\nb = 2;');
+
 
         self.options.preserve_newlines = True
         bt('if (foo) // comment\n    bar();');
@@ -700,6 +737,23 @@ class TestJSBeautifier(unittest.TestCase):
 
         bt('if (foo) if (bar) if (baz) whee();\na();');
         bt('if (foo) a()\nif (bar) if (baz) whee();\na();');
+        bt('if (options)\n' +
+           '    for (var p in options)\n' +
+           '        this[p] = options[p];');
+
+        bt('function f(a, b, c,\nd, e) {}',
+            'function f(a, b, c,\n    d, e) {}');
+
+        bt('function f(a,b) {if(a) b()}function g(a,b) {if(!a) b()}',
+            'function f(a, b) {\n    if (a) b()\n}\nfunction g(a, b) {\n    if (!a) b()\n}');
+        bt('function f(a,b) {if(a) b()}\n\n\n\nfunction g(a,b) {if(!a) b()}',
+            'function f(a, b) {\n    if (a) b()\n}\n\n\n\nfunction g(a, b) {\n    if (!a) b()\n}');
+        # This is not valid syntax, but still want to behave reasonably and not side-effect
+        bt('(if(a) b())(if(a) b())',
+            '(\nif (a) b())(\nif (a) b())');
+        bt('(if(a) b())\n\n\n(if(a) b())',
+            '(\nif (a) b())\n\n\n(\nif (a) b())');
+
 
         bt("if\n(a)\nb();", "if (a)\n    b();");
         bt('var a =\nfoo', 'var a =\n    foo');
@@ -712,6 +766,13 @@ class TestJSBeautifier(unittest.TestCase):
         bt('if(a &&\nb\n||\nc\n||d\n&&\ne) e = f', 'if (a &&\n    b ||\n    c || d &&\n    e) e = f');
         bt('if(a &&\n(b\n||\nc\n||d)\n&&\ne) e = f', 'if (a &&\n    (b ||\n    c || d) &&\n    e) e = f');
         test_fragment('\n\n"x"', '"x"');
+        # this beavior differs between js and python, defaults to unlimited in js, 10 in python
+        bt('a = 1;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nb = 2;',
+            'a = 1;\n\n\n\n\n\n\n\n\n\nb = 2;');
+        self.options.max_preserve_newlines = 8;
+        bt('a = 1;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nb = 2;',
+            'a = 1;\n\n\n\n\n\n\n\nb = 2;');
+
 
 
 

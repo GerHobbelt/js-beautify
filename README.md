@@ -1,4 +1,6 @@
 # JS Beautifier
+[![Build Status](https://secure.travis-ci.org/einars/js-beautify.png?branch=master)](http://travis-ci.org/einars/js-beautify)
+[![NPM version](https://badge.fury.io/js/js-beautify.png)](http://badge.fury.io/js/js-beautify)
 
 ...or, more specifically, all of the code powering
 [jsbeautifier.org](http://jsbeautifier.org/).
@@ -160,6 +162,8 @@ useful or working for you. (MIT)
 
 Written by Einar Lielmanis, <einar@jsbeautifier.org>
 Python version flourished by Stefano Sanfilippo <a.little.coder@gmail.com>
+General maintenance and expansion by Liam Newman <bitwiseman@gmail.com>
+Command-line for node.js by Daniel Stockman <daniel.stockman@gmail.com>
 
 Thanks to Jason Diamond, Patrick Hof, Nochum Sossonko, Andreas Schneider, Dave
 Vasilevsky, Vital Batmanov, Ron Baldwin, Gabriel Harrison, Chris J. Shull,
