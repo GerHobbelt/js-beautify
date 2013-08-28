@@ -22,6 +22,7 @@ var fs = require('fs'),
         "break_chained_methods": Boolean,
         "keep_array_indentation": Boolean,
         "unescape_strings": Boolean,
+        "wrap_line_length": Number,
         // CLI
         "version": Boolean,
         "help": Boolean,
@@ -46,6 +47,7 @@ var fs = require('fs'),
         "B": ["--break_chained_methods"],
         "k": ["--keep_array_indentation"],
         "x": ["--unescape_strings"],
+        "w": ["--wrap_line_length"],
         // non-dasherized hybrid shortcuts
         "good-stuff": [
             "--keep_array_indentation",
@@ -60,58 +62,65 @@ var fs = require('fs'),
         "r": ["--replace"],
         "q": ["--quiet"]
         // no shorthand for "config"
-    }),
-    parsed = nopt(knownOpts, shortHands);
+    });
 
-if (parsed.version) {
-    console.log(require('./package.json').version);
-    process.exit(0);
+// var cli = require('js-beautify/cli'); cli.interpret();
+var interpret = exports.interpret = function (argv, slice) {
+    var parsed = nopt(knownOpts, shortHands, argv, slice);
+
+    if (parsed.version) {
+        console.log(require('./package.json').version);
+        process.exit(0);
+    }
+    else if (parsed.help) {
+        usage();
+        process.exit(0);
+    }
+
+    var cfg = cc(
+        parsed,
+        cleanOptions(cc.env('jsbeautify_'), knownOpts),
+        parsed.config,
+        cc.find('.jsbeautifyrc'),
+        __dirname + '/config/defaults.json'
+    ).snapshot;
+
+    try {
+        // Verify arguments
+        checkFiles(cfg);
+        checkIndent(cfg);
+        debug(cfg);
+
+        // Process files synchronously to avoid EMFILE error
+        cfg.files.forEach(processInputSync, { cfg: cfg });
+        logToStdout('\nBeautified ' + cfg.files.length + ' files', cfg);
+    }
+    catch (ex) {
+        debug(cfg);
+        // usage(ex);
+        console.error(ex);
+        console.error('Run `js-beautify -h` for help.');
+        process.exit(1);
+    }
+};
+
+// interpret args immediately when called as executable
+if (require.main === module) {
+    interpret();
 }
-else if (parsed.help) {
-    usage();
-    process.exit(0);
-}
-
-var cfg = cc(
-    parsed,
-    cleanOptions(cc.env('jsbeautify_'), knownOpts),
-    parsed.config,
-    cc.find('.jsbeautifyrc'),
-    __dirname + '/config/defaults.json'
-).snapshot;
-
-
-try {
-    // Verify arguments
-    checkFiles(cfg);
-    checkIndent(cfg);
-    debug(cfg);
-
-    // Process files synchronously to avoid EMFILE error
-    cfg.files.forEach(processInputSync, { cfg: cfg });
-    logToStdout('\nBeautified ' + cfg.files.length + ' files');
-}
-catch (ex) {
-    debug(cfg);
-    // usage(ex);
-    console.error(ex);
-    console.error('Run `js-beautify -h` for help.');
-    process.exit(1);
-}
-
 
 function usage(err) {
     var msg = [
         'js-beautify@' + require('./package.json').version,
         '',
         'CLI Options:',
-        '  -f, --file                    Input file(s) (Pass \'-\' for stdin)',
-        '  -r, --replace                 Write output in-place, replacing input',
-        '  -o, --outfile                 Write output to file (default stdout)',
-        '  --config                      Path to config file',
-        '  -q, --quiet                   Suppress output to stdout',
-        '  -h, --help                    Show this help',
-        '  -v, --version                 Show the version',
+        '  -f, --file       Input file(s) (Pass \'-\' for stdin)',
+        '  -r, --replace    Write output in-place, replacing input',
+        '  -o, --outfile    Write output to file (default stdout)',
+        '  --config         Path to config file',
+        '  -q, --quiet      Suppress output to stdout',
+        '  -h, --help       Show this help',
+        '  -v, --version    Show the version',
         '',
         'Beautifier Options:',
         '  -s, --indent-size             Indentation size [4]',
@@ -125,7 +134,8 @@ function usage(err) {
         '  -B, --break-chained-methods   Break chained method calls across subsequent lines',
         '  -k, --keep-array-indentation  Preserve array indentation',
         '  -x, --unescape-strings        Decode printable characters encoded in xNN notation',
-        '  -g, --good-stuff              Warm the cockles of Crockford\'s heart',
+        '  -w, --wrap-line-length        Wrap lines at next opportunity after N characters [0]',
+        '  --good-stuff                  Warm the cockles of Crockford\'s heart',
         ''
     ];
 
@@ -176,14 +186,14 @@ function makePretty(code, config, outfile, callback) {
         // ensure newline at end of beautified output
         pretty += '\n';
 
-        callback(null, pretty, outfile);
+        callback(null, pretty, outfile, config);
     }
     catch (ex) {
         callback(ex);
     }
 }
 
-function writePretty(err, pretty, outfile) {
+function writePretty(err, pretty, outfile, config) {
     if (err) {
         console.error(err);
         process.exit(1);
@@ -192,7 +202,7 @@ function writePretty(err, pretty, outfile) {
     if (outfile) {
         try {
             fs.writeFileSync(outfile, pretty, 'utf8');
-            logToStdout('beautified ' + path.relative(process.cwd(), outfile));
+            logToStdout('beautified ' + path.relative(process.cwd(), outfile), config);
         }
         catch (ex) {
             onOutputError(ex);
@@ -312,8 +322,8 @@ function testFilePath(filepath) {
     }
 }
 
-function logToStdout(str) {
-    if (typeof parsed.quiet === "undefined" || !parsed.quiet) {
+function logToStdout(str, config) {
+    if (typeof config.quiet === "undefined" || !config.quiet) {
         console.log(str);
     }
 }
