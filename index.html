@@ -33,9 +33,10 @@
     <meta charset="utf-8">
     <title>Online JavaScript beautifier</title>
     <link rel="icon" href="web/favicon.png" type="image/png">
+    <link rel="stylesheet" href="web/third-party/codemirror/lib/codemirror.css">
+
     <script src="web/third-party/codemirror/lib/codemirror.js"></script>
     <script src="web/third-party/codemirror/mode/javascript/javascript.js"></script>
-    <link rel="stylesheet" href="web/third-party/codemirror/lib/codemirror.css">
 
     <style>
 
@@ -48,7 +49,11 @@ img {
     border: 0;
 }
 
-a.self { font-weight: bold; text-decoration: none; color: #444; border-bottom: 1px solid #aaa }
+a.self {
+    font-weight: bold;
+    text-decoration: none;
+    color: #444;
+    border-bottom: 1px solid #aaa }
 
 p, select, label, .blurb, a.turn-off-codemirror {
     font:13px/1.231 arial, sans-serif;
@@ -66,10 +71,6 @@ button.submit {
     margin: 0;
 }
 
-
-#source {
-    width: 100%;
-}
 
 button.submit em {
     font-size: 11px;
@@ -93,6 +94,10 @@ table#options td {
     padding-left: 10px;
 }
 
+#about {
+    float: left;
+}
+
 #about p {
     margin: 0 6px 6px 0;
 }
@@ -112,16 +117,10 @@ li.writeme {
 
 .CodeMirror {
     border: 1px solid #ccc;
+    height: 450px;
+    font-size: 90%;
     margin-bottom: 6px;
     background: white;
-}
-.CodeMirror-scroll {
-  min-height: 400px;
-  max-height: 100%;
-  height: auto;
-  overflow-y: hidden;
-  overflow-x: auto;
-  width: 100%
 }
 p {
     margin-left: 40px;
@@ -179,26 +178,26 @@ function any(a, b) {
 function read_settings_from_cookie() {
     $('#tabsize').val(any($.cookie('tabsize'), '4'));
     $('#brace-style').val(any($.cookie('brace-style'), 'collapse'));
-    $('#detect-packers').attr('checked', $.cookie('detect-packers') !== 'off');
-    $('#preserve-newlines').attr('checked', $.cookie('preserve-newlines') !== 'off');
-    $('#keep-array-indentation').attr('checked', $.cookie('keep-array-indentation') === 'on');
-    $('#break-chained-methods').attr('checked', $.cookie('break-chained-methods') === 'on');
+    $('#detect-packers').prop('checked', $.cookie('detect-packers') !== 'off');
+    $('#max-preserve-newlines').val(any($.cookie('max-preserve-newlines'), '5'));
+    $('#keep-array-indentation').prop('checked', $.cookie('keep-array-indentation') === 'on');
+    $('#break-chained-methods').prop('checked', $.cookie('break-chained-methods') === 'on');
     $('#indent-scripts').val(any($.cookie('indent-scripts'), 'normal'));
-    $('#space-before-conditional').attr('checked', $.cookie('space-before-conditional') !== 'off');
+    $('#space-before-conditional').prop('checked', $.cookie('space-before-conditional') !== 'off');
     $('#wrap-line-length').val(any($.cookie('wrap-line-length'), '0'));
-    $('#unescape-strings').attr('checked', $.cookie('unescape-strings') === 'on');
+    $('#unescape-strings').prop('checked', $.cookie('unescape-strings') === 'on');
 }
 
 function store_settings_to_cookie() {
     var opts = { expires: 360 };
     $.cookie('tabsize', $('#tabsize').val(), opts);
     $.cookie('brace-style', $('#brace-style').val(), opts);
-    $.cookie('detect-packers', $('#detect-packers').attr('checked') ? 'on' : 'off', opts);
-    $.cookie('preserve-newlines', $('#preserve-newlines').attr('checked') ? 'on' : 'off', opts);
-    $.cookie('keep-array-indentation', $('#keep-array-indentation').attr('checked') ? 'on' : 'off', opts);
-    $.cookie('break-chained-methods', $('#break-chained-methods').attr('checked') ? 'on' : 'off', opts);
-    $.cookie('space-before-conditional', $('#space-before-conditional').attr('checked') ? 'on' : 'off', opts);
-    $.cookie('unescape-strings', $('#unescape-strings').attr('checked') ? 'on' : 'off', opts);
+    $.cookie('detect-packers', $('#detect-packers').prop('checked') ? 'on' : 'off', opts);
+    $.cookie('max-preserve-newlines', $('#max-preserve-newlines').val(), opts);
+    $.cookie('keep-array-indentation', $('#keep-array-indentation').prop('checked') ? 'on' : 'off', opts);
+    $.cookie('break-chained-methods', $('#break-chained-methods').prop('checked') ? 'on' : 'off', opts);
+    $.cookie('space-before-conditional', $('#space-before-conditional').prop('checked') ? 'on' : 'off', opts);
+    $.cookie('unescape-strings', $('#unescape-strings').prop('checked') ? 'on' : 'off', opts);
     $.cookie('wrap-line-length', $('#wrap-line-length').val(), opts);
     $.cookie('indent-scripts', $('#indent-scripts').val(), opts);
 }
@@ -253,20 +252,21 @@ function beautify()
 
     opts.indent_size = $('#tabsize').val();
     opts.indent_char = opts.indent_size == 1 ? '\t' : ' ';
-    opts.preserve_newlines = $('#preserve-newlines').attr('checked');
-    opts.keep_array_indentation = $('#keep-array-indentation').attr('checked');
-    opts.break_chained_methods = $('#break-chained-methods').attr('checked');
+    opts.max_preserve_newlines = $('#max-preserve-newlines').val();
+    opts.preserve_newlines = opts.max_preserve_newlines !== -1;
+    opts.keep_array_indentation = $('#keep-array-indentation').prop('checked');
+    opts.break_chained_methods = $('#break-chained-methods').prop('checked');
     opts.indent_scripts = $('#indent-scripts').val();
     opts.brace_style = $('#brace-style').val();
-    opts.space_before_conditional = $('#space-before-conditional').attr('checked');
-    opts.unescape_strings = $('#unescape-strings').attr('checked');
+    opts.space_before_conditional = $('#space-before-conditional').prop('checked');
+    opts.unescape_strings = $('#unescape-strings').prop('checked');
     opts.wrap_line_length = $('#wrap-line-length').val();
     opts.space_after_anon_function = true;
 
     if (looks_like_html(source)) {
         output = html_beautify(source, opts);
     } else {
-        if ($('#detect-packers').attr('checked')) {
+        if ($('#detect-packers').prop('checked')) {
             source = unpacker_filter(source);
         }
         output = js_beautify(source, opts);
@@ -293,15 +293,30 @@ function looks_like_html(source)
 </head>
 <body>
 
+    <div id="about">
+            <p><a class="self" href="./">Beautify, unpack or deobfuscate JavaScript and HTML, make JSON/JSONP readable, etc.</a></p>
+            <p>All of the source code is completely free and open, available on the <a href="https://github.com/einars/js-beautify">github</a> under MIT licence, <br>and we have a command-line version, python library and a <a href="https://npmjs.org/package/js-beautify">node package</a> as well.
+    </div>
+
+
     <table id="options">
         <tr>
           <td>
           <select name="tabsize" id="tabsize">
-            <option value="1">indent with a tab character</option>
-            <option value="2">indent with 2 spaces</option>
-            <option value="3">indent with 3 spaces</option>
-            <option value="4">indent with 4 spaces</option>
-            <option value="8">indent with 8 spaces</option>
+            <option value="1">Indent with a tab character</option>
+            <option value="2">Indent with 2 spaces</option>
+            <option value="3">Indent with 3 spaces</option>
+            <option value="4">Indent with 4 spaces</option>
+            <option value="8">Indent with 8 spaces</option>
+          </select><br>
+
+          <select name="max-preserve-newlines" id="max-preserve-newlines">
+            <option value="-1">Remove all extra newlines</option>
+            <option value="1">Allow 1 newline between tokens</option>
+            <option value="2">Allow 2 newlines between tokens</option>
+            <option value="5">Allow 5 newlines between tokens</option>
+            <option value="10">Allow 10 newlines between tokens</option>
+            <option value="0">Allow unlimited newlines between tokens</option>
           </select><br>
 
           <select name="wrap-line-length" id="wrap-line-length">
@@ -318,10 +333,10 @@ function looks_like_html(source)
             <option value="collapse">Braces with control statement</option>
             <option value="expand">Braces on own line</option>
             <option value="end-expand">End braces on own line</option>
-            <!-- option value="expand-strict">Braces always on own line (not recommended)</option -->
           </select>
 
-          <p style="margin:6px 0 0 0">HTML &lt;style&gt;, &lt;script&gt; formatting:</p><select id="indent-scripts">
+          <p style="margin:6px 0 0 0">HTML &lt;style&gt;, &lt;script&gt; formatting:</p>
+          <select id="indent-scripts">
             <option value="keep">Keep indent level of the tag</option>
             <option value="normal">Add one indent level</option>
             <option value="separate">Separate indentation</option>
@@ -329,7 +344,6 @@ function looks_like_html(source)
 
         </td><td>
 
-          <input class="checkbox" type="checkbox" id="preserve-newlines"><label for="preserve-newlines"> Preserve empty lines?</label><br>
           <input class="checkbox" type="checkbox" id="detect-packers"><label for="detect-packers"> Detect packers and obfuscators?</label><br>
           <input class="checkbox" type="checkbox" id="keep-array-indentation"><label for="keep-array-indentation"> Keep array indentation?</label><br>
           <input class="checkbox" type="checkbox" id="break-chained-methods"><label for="break-chained-methods"> Break lines on chained methods?</label><br>
@@ -341,16 +355,10 @@ function looks_like_html(source)
         </td></tr>
     </table>
 
-    <div id="about">
-            <p><a class="self" href="./">Beautify, unpack or deobfuscate JavaScript and HTML, make JSON/JSONP readable, etc.</a></p>
-            <p>All of the source code is completely free and open, available on the <a href="https://github.com/einars/js-beautify">github</a> under MIT licence, <br>and we have a command-line version, python library and a <a href="https://npmjs.org/package/js-beautify">node package</a> as well.
-    </div>
-
-
     <div style="line-height: 0">
-    <button class="submit"><strong>Beautify JavaScript or HTML</strong> <em>(ctrl-enter)</em></button>
-    <textarea id="source" rows="30" cols="160"></textarea>
-    <button class="submit"><strong>Beautify JavaScript or HTML</strong> <em>(ctrl-enter)</em></button>
+      <button class="submit"><strong>Beautify JavaScript or HTML</strong> <em>(ctrl-enter)</em></button>
+      <textarea id="source" rows="30" cols="160"></textarea>
+      <button class="submit"><strong>Beautify JavaScript or HTML</strong> <em>(ctrl-enter)</em></button>
     </div>
 
     <div class="blurb">
@@ -359,7 +367,7 @@ function looks_like_html(source)
       <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
         <input type="hidden" name="cmd" value="_s-xclick">
         <input type="hidden" name="hosted_button_id" value="TL28UJK2ARCUJ">
-        <input style="border:0" type="image" src="http://spicausis.lv/misc/paypal-donate.gif" name="submit" alt="PayPal - The safer, easier way to pay online!">
+        <input style="border:0" type="image" src="web/paypal-donate.gif" name="submit" alt="PayPal - The safer, easier way to pay online!">
         <img alt="" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1">
       </form>
       </div>
@@ -426,9 +434,15 @@ function looks_like_html(source)
     read_settings_from_cookie();
 
     var default_text = "// This is just a sample script. Paste your real code (javascript or HTML) here.\n\nif ('this_is'==/an_example/){of_beautifer();}else{var a=b?(c%d):e[f];}";
+    var textArea = $('#source')[0];
 
     if (the.use_codemirror && typeof CodeMirror !== 'undefined') {
-        the.editor = CodeMirror.fromTextArea($('#source').get(0))
+        the.editor = CodeMirror.fromTextArea(textArea, {
+          theme: 'default',
+          lineNumbers: true
+        });
+        the.editor.focus();
+
         the.editor.setValue(default_text);
         $('.CodeMirror').click(function () {
             if (the.editor.getValue() == default_text) {

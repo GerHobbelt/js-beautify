@@ -242,6 +242,14 @@ class TestJSBeautifier(unittest.TestCase):
         bt('a(/[a/b]/);b()', "a(/[a/b]/);\nb()");
 
         bt('a=[[1,2],[4,5],[7,8]]', "a = [\n    [1, 2],\n    [4, 5],\n    [7, 8]\n]");
+        bt('a=[[1,2],[4,5],function(){},[7,8]]',
+            "a = [\n    [1, 2],\n    [4, 5],\n    function() {},\n    [7, 8]\n]");
+        bt('a=[[1,2],[4,5],function(){},function(){},[7,8]]',
+            "a = [\n    [1, 2],\n    [4, 5],\n    function() {},\n    function() {},\n    [7, 8]\n]");
+        bt('a=[[1,2],[4,5],function(){},[7,8]]',
+            "a = [\n    [1, 2],\n    [4, 5],\n    function() {},\n    [7, 8]\n]");
+        bt('a=[b,c,function(){},function(){},d]',
+            "a = [b, c,\n    function() {},\n    function() {},\n    d\n]");
         bt('a=[a[1],b[4],c[d[7]]]', "a = [a[1], b[4], c[d[7]]]");
         bt('[1,2,[3,4,[5,6],7],8]', "[1, 2, [3, 4, [5, 6], 7], 8]");
 
@@ -396,55 +404,114 @@ class TestJSBeautifier(unittest.TestCase):
 
         self.options.brace_style = 'expand';
 
-        bt("throw {}")
-        bt("throw {\n    foo;\n}")
-
         bt('//case 1\nif (a == 1)\n{}\n//case 2\nelse if (a == 2)\n{}');
+        bt('if(1){2}else{3}', "if (1)\n{\n    2\n}\nelse\n{\n    3\n}");
+        bt('try{a();}catch(b){c();}catch(d){}finally{e();}',
+            "try\n{\n    a();\n}\ncatch (b)\n{\n    c();\n}\ncatch (d)\n{}\nfinally\n{\n    e();\n}");
+        bt('if(a){b();}else if(c) foo();',
+            "if (a)\n{\n    b();\n}\nelse if (c) foo();");
+        bt("if (a) {\n// comment\n}else{\n// comment\n}",
+            "if (a)\n{\n    // comment\n}\nelse\n{\n    // comment\n}"); # if/else statement with empty body
+        bt('if (x) {y} else { if (x) {y}}',
+            'if (x)\n{\n    y\n}\nelse\n{\n    if (x)\n    {\n        y\n    }\n}');
+        bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}',
+            'if (a)\n{\n    b;\n}\nelse\n{\n    c;\n}');
+        test_fragment('    /*\n* xx\n*/\n// xx\nif (foo) {\n    bar();\n}',
+                      '    /*\n     * xx\n     */\n    // xx\n    if (foo)\n    {\n        bar();\n    }');
+        bt('if (foo)\n{}\nelse /regex/.test();');
+        bt('if (foo) /regex/.test();');
         bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a)\n{\n    b;\n}\nelse\n{\n    c;\n}');
         test_fragment('if (foo) {', 'if (foo)\n{');
         test_fragment('foo {', 'foo\n{');
-        test_fragment('return {', 'return {'); # return needs the brace. maybe something else as well: feel free to report.
-        test_fragment('return /* inline comment */ {', 'return /* inline comment */ {');
+        test_fragment('return {', 'return {'); # return needs the brace.
+        test_fragment('return /* inline */ {', 'return /* inline */ {');
         # test_fragment('return\n{', 'return\n{'); # can't support this?, but that's an improbable and extreme case anyway.
         test_fragment('return;\n{', 'return;\n{');
-
-        bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a)\n{\n    b;\n}\nelse\n{\n    c;\n}');
+        bt("throw {}");
+        bt("throw {\n    foo;\n}");
         bt('var foo = {}');
-        bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a)\n{\n    b;\n}\nelse\n{\n    c;\n}');
-        test_fragment('if (foo) {', 'if (foo)\n{');
-        test_fragment('foo {', 'foo\n{');
-        test_fragment('return {', 'return {'); # return needs the brace. maybe something else as well: feel free to report.
-        test_fragment('return /* inline comment */ {', 'return /* inline comment */ {');
-        # test_fragment('return\n{', 'return\n{'); # can't support this?, but that's an improbable and extreme case anyway.
-        test_fragment('return;\n{', 'return;\n{');
+        bt('if (foo) bar();\nelse break');
+        bt('function x() {\n    foo();\n}zzz', 'function x()\n{\n    foo();\n}\nzzz');
+        bt('a: do {} while (); xxx', 'a: do {} while ();\nxxx');
+        bt('var a = new function();');
+        bt('var a = new function() {};');
+        bt('var a = new function a()\n    {};');
+        test_fragment('new function');
+
 
         self.options.brace_style = 'collapse';
 
         bt('//case 1\nif (a == 1) {}\n//case 2\nelse if (a == 2) {}');
+        bt('if(1){2}else{3}', "if (1) {\n    2\n} else {\n    3\n}");
+        bt('try{a();}catch(b){c();}catch(d){}finally{e();}',
+             "try {\n    a();\n} catch (b) {\n    c();\n} catch (d) {} finally {\n    e();\n}");
+        bt('if(a){b();}else if(c) foo();',
+            "if (a) {\n    b();\n} else if (c) foo();");
+        bt("if (a) {\n// comment\n}else{\n// comment\n}",
+            "if (a) {\n    // comment\n} else {\n    // comment\n}"); # if/else statement with empty body
+        bt('if (x) {y} else { if (x) {y}}',
+            'if (x) {\n    y\n} else {\n    if (x) {\n        y\n    }\n}');
+        bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}',
+            'if (a) {\n    b;\n} else {\n    c;\n}');
+        test_fragment('    /*\n* xx\n*/\n// xx\nif (foo) {\n    bar();\n}',
+                      '    /*\n     * xx\n     */\n    // xx\n    if (foo) {\n        bar();\n    }');
+        bt('if (foo) {} else /regex/.test();');
+        bt('if (foo) /regex/.test();');
         bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a) {\n    b;\n} else {\n    c;\n}');
         test_fragment('if (foo) {', 'if (foo) {');
         test_fragment('foo {', 'foo {');
-        test_fragment('return {', 'return {'); # return needs the brace. maybe something else as well: feel free to report.
-        test_fragment('return /* inline comment */ {', 'return /* inline comment */ {');
+        test_fragment('return {', 'return {'); # return needs the brace.
+        test_fragment('return /* inline */ {', 'return /* inline */ {');
         # test_fragment('return\n{', 'return\n{'); # can't support this?, but that's an improbable and extreme case anyway.
         test_fragment('return;\n{', 'return; {');
-
+        bt("throw {}");
+        bt("throw {\n    foo;\n}");
+        bt('var foo = {}');
         bt('if (foo) bar();\nelse break');
         bt('function x() {\n    foo();\n}zzz', 'function x() {\n    foo();\n}\nzzz');
         bt('a: do {} while (); xxx', 'a: do {} while ();\nxxx');
+        bt('var a = new function();');
+        bt('var a = new function() {};');
+        bt('var a = new function a() {};');
+        test_fragment('new function');
 
         self.options.brace_style = "end-expand";
 
         bt('//case 1\nif (a == 1) {}\n//case 2\nelse if (a == 2) {}');
         bt('if(1){2}else{3}', "if (1) {\n    2\n}\nelse {\n    3\n}");
-        bt('try{a();}catch(b){c();}finally{d();}', "try {\n    a();\n}\ncatch (b) {\n    c();\n}\nfinally {\n    d();\n}");
-        bt('if(a){b();}else if(c) foo();', "if (a) {\n    b();\n}\nelse if (c) foo();");
-        bt("if (a) {\n// comment\n}else{\n// comment\n}", "if (a) {\n    // comment\n}\nelse {\n    // comment\n}"); # if/else statement with empty body
-        bt('if (x) {y} else { if (x) {y}}', 'if (x) {\n    y\n}\nelse {\n    if (x) {\n        y\n    }\n}');
+        bt('try{a();}catch(b){c();}catch(d){}finally{e();}',
+            "try {\n    a();\n}\ncatch (b) {\n    c();\n}\ncatch (d) {}\nfinally {\n    e();\n}");
+        bt('if(a){b();}else if(c) foo();',
+            "if (a) {\n    b();\n}\nelse if (c) foo();");
+        bt("if (a) {\n// comment\n}else{\n// comment\n}",
+            "if (a) {\n    // comment\n}\nelse {\n    // comment\n}"); # if/else statement with empty body
+        bt('if (x) {y} else { if (x) {y}}',
+            'if (x) {\n    y\n}\nelse {\n    if (x) {\n        y\n    }\n}');
+        bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}',
+            'if (a) {\n    b;\n}\nelse {\n    c;\n}');
+        test_fragment('    /*\n* xx\n*/\n// xx\nif (foo) {\n    bar();\n}',
+                      '    /*\n     * xx\n     */\n    // xx\n    if (foo) {\n        bar();\n    }');
+        bt('if (foo) {}\nelse /regex/.test();');
+        bt('if (foo) /regex/.test();');
         bt('if (a)\n{\nb;\n}\nelse\n{\nc;\n}', 'if (a) {\n    b;\n}\nelse {\n    c;\n}');
+        test_fragment('if (foo) {', 'if (foo) {');
+        test_fragment('foo {', 'foo {');
+        test_fragment('return {', 'return {'); # return needs the brace.
+        test_fragment('return /* inline */ {', 'return /* inline */ {');
+        # test_fragment('return\n{', 'return\n{'); # can't support this?, but that's an improbable and extreme case anyway.
+        test_fragment('return;\n{', 'return; {');
+        bt("throw {}");
+        bt("throw {\n    foo;\n}");
+        bt('var foo = {}');
+        bt('if (foo) bar();\nelse break');
+        bt('function x() {\n    foo();\n}zzz', 'function x() {\n    foo();\n}\nzzz');
+        bt('a: do {} while (); xxx', 'a: do {} while ();\nxxx');
+        bt('var a = new function();');
+        bt('var a = new function() {};');
+        bt('var a = new function a() {};');
+        test_fragment('new function');
 
-        bt('if (foo) {}\nelse /regex/.test();')
-        # bt('if (foo) /regex/.test();') # doesn't work, detects as a division. should it work?
+        self.options.brace_style = 'collapse';
 
         bt('a = <?= external() ?> ;'); # not the most perfect thing in the world, but you're the weirdo beaufifying php mix-ins with javascript beautifier
         bt('a = <%= external() %> ;');
@@ -476,7 +543,6 @@ class TestJSBeautifier(unittest.TestCase):
         bt('createdAt = {\n    type: Date,\n    default: Date.now\n}')
         bt('switch (createdAt) {\n    case a:\n        Date,\n    default:\n        Date.now\n}')
 
-        bt('foo = {\n    x: y, // #44\n    w: z // #44\n}');
         bt('return function();')
         bt('var a = function();')
         bt('var a = 5 + function();')
@@ -688,6 +754,8 @@ class TestJSBeautifier(unittest.TestCase):
         bt('if (foo) // comment\n    (bar());');
         bt('if (foo) // comment\n    (bar());');
         bt('if (foo) // comment\n    /asdf/;');
+        bt('foo = {\n    x: y, // #44\n    w: z // #44\n}');
+        bt('switch (x) {\n    case "a":\n        // comment on newline\n        break;\n    case "b": // comment on same line\n        break;\n}');
 
         # these aren't ready yet.
         #bt('if (foo) // comment\n    bar() /*i*/ + baz() /*j\n*/ + asdf();');
@@ -736,6 +804,8 @@ class TestJSBeautifier(unittest.TestCase):
         bt('if (foo) // comment\n    (bar());');
         bt('if (foo) // comment\n    (bar());');
         bt('if (foo) // comment\n    /asdf/;');
+        bt('foo = {\n    x: y, // #44\n    w: z // #44\n}');
+        bt('switch (x) {\n    case "a":\n        // comment on newline\n        break;\n    case "b": // comment on same line\n        break;\n}');
 
         # these aren't ready yet.
         # bt('if (foo) // comment\n    bar() /*i*/ + baz() /*j\n*/ + asdf();');
@@ -781,8 +851,49 @@ class TestJSBeautifier(unittest.TestCase):
         bt('a = 1;\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nb = 2;',
             'a = 1;\n\n\n\n\n\n\n\nb = 2;');
 
+        # Test the option to have spaces within parens
+        self.options.space_in_paren = False
+        bt('if(p) foo(a,b)', 'if (p) foo(a, b)');
+        bt('try{while(true){willThrow()}}catch(result)switch(result){case 1:++result }',
+           'try {\n    while (true) {\n        willThrow()\n    }\n} catch (result) switch (result) {\n    case 1:\n        ++result\n}');
+        bt('((e/((a+(b)*c)-d))^2)*5;', '((e / ((a + (b) * c) - d)) ^ 2) * 5;');
+        bt('function f(a,b) {if(a) b()}function g(a,b) {if(!a) b()}',
+            'function f(a, b) {\n    if (a) b()\n}\nfunction g(a, b) {\n    if (!a) b()\n}');
+        bt('a=[];',
+            'a = [];');
+        bt('a=[b,c,d];',
+            'a = [b, c, d];');
+        bt('a= f[b];',
+            'a = f[b];');
+        self.options.space_in_paren = True
+        bt('if(p) foo(a,b)', 'if ( p ) foo( a, b )');
+        bt('try{while(true){willThrow()}}catch(result)switch(result){case 1:++result }',
+           'try {\n    while ( true ) {\n        willThrow( )\n    }\n} catch ( result ) switch ( result ) {\n    case 1:\n        ++result\n}');
+        bt('((e/((a+(b)*c)-d))^2)*5;', '( ( e / ( ( a + ( b ) * c ) - d ) ) ^ 2 ) * 5;');
+        bt('function f(a,b) {if(a) b()}function g(a,b) {if(!a) b()}',
+            'function f( a, b ) {\n    if ( a ) b( )\n}\nfunction g( a, b ) {\n    if ( !a ) b( )\n}');
+        bt('a=[ ];',
+            'a = [ ];');
+        bt('a=[b,c,d];',
+            'a = [ b, c, d ];');
+        bt('a= f[b];',
+            'a = f[ b ];');
+        self.options.space_in_paren = False
 
 
+        # Test that e4x literals passed through when e4x-option is enabled
+        bt('xml=<a b="c"><d/><e>\n foo</e>x</a>;', 'xml = < a b = "c" > < d / > < e >\n    foo < /e>x</a > ;');
+        self.options.e4x = True
+        bt('xml=<a b="c"><d/><e>\n foo</e>x</a>;', 'xml = <a b="c"><d/><e>\n foo</e>x</a>;');
+        # Handles messed up tags, as long as it isn't the same name
+        # as the root tag. Also handles tags of same name as root tag
+        # as long as nesting matches.
+        bt('xml=<a x="jn"><c></b></f><a><d jnj="jnn"><f></a ></nj></a>;',
+         'xml = <a x="jn"><c></b></f><a><d jnj="jnn"><f></a ></nj></a>;');
+        # If xml is not terminated, the remainder of the file is treated
+        # as part of the xml-literal (passed through unaltered)
+        test_fragment('xml=<a></b>\nc<b;', 'xml = <a></b>\nc<b;');
+        self.options.e4x = False
 
 
 
