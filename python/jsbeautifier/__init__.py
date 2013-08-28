@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import os
 import getopt
 import re
 import string
@@ -108,6 +109,7 @@ unescape_strings = %s
 class BeautifierFlags:
     def __init__(self, mode):
         self.mode = mode
+        self.parent = None
         self.last_text = ''
         self.last_word = ''
         self.var_line = False
@@ -125,6 +127,7 @@ class BeautifierFlags:
         self.ternary_depth = 0
 
     def apply_base(self, flags_base):
+        self.parent = flags_base;
         self.last_text = flags_base.last_text
         self.last_word = flags_base.last_word
         self.indentation_level = flags_base.indentation_level
@@ -219,7 +222,7 @@ class Beautifier:
         self.previous_flags = None
         self.flag_store = []
         self.input_wanted_newline = False
-
+        self.line_indent_level = 0;
         if self.opts.indent_with_tabs:
             self.indent_string = "\t"
         else:
@@ -391,7 +394,7 @@ class Beautifier:
 
         if not preserve_statement_flags:
             if self.flags.last_text != ';':
-                while self.flags.mode == MODE.Statement and not self.flags.if_block:
+                while self.flags.mode == MODE.Statement and not self.flags.if_block and not self.flags.do_block:
                     self.restore_mode();
 
         if self.flags.mode == MODE.ArrayLiteral:
@@ -416,19 +419,19 @@ class Beautifier:
                 if self.preindent_string:
                     self.output.append(self.preindent_string)
 
-                self.append_indent_string(self.flags.indentation_level)
-                self.append_indent_string(self.flags.var_line and self.flags.var_line_reindented)
-                self.append_indent_string(self.output_wrapped)
+                level = self.flags.indentation_level;
+                if self.flags.var_line and self.flags.var_line_reindented:
+                    level += 1
+                if self.output_wrapped:
+                    level += 1
+
+                self.append_indent_string(level)
 
 
-    def append_indent_string(self, level = 1):
-        if not isinstance(level, int):
-            if level:
-                level = 1
-            else:
-                level = 0
-
+    def append_indent_string(self, level):
+        # Never indent your first output indent at the start of the file
         if self.flags.last_text != '':
+            self.line_indent_level = level
             for i in range(level):
                 self.output.append(self.indent_string)
 
@@ -450,6 +453,12 @@ class Beautifier:
     def indent(self):
         self.flags.indentation_level += 1
 
+    def deindent(self):
+        allow_deindent = self.flags.indentation_level > 0 and ((self.flags.parent == None) or self.flags.indentation_level > self.flags.parent.indentation_level)
+
+        if allow_deindent:
+            self.flags.indentation_level -= 1
+
 
     def set_mode(self, mode):
         if self.flags:
@@ -470,10 +479,19 @@ class Beautifier:
         if (self.flags.last_text == 'do' \
                 or (self.flags.last_text == 'else' and self.token_text != 'if' ) \
                 or (self.last_type == 'TK_END_EXPR' and (self.previous_flags.mode == MODE.ForInitializer or self.previous_flags.mode == MODE.Conditional))):
-            self.allow_wrap_or_preserved_newline(self.token_text)
-            self.set_mode(MODE.Statement)
-            self.indent()
-            self.output_wrapped = False
+            # Issue #276:
+            # If starting a new statement with [if, for, while, do], push to a new line.
+            # if (a) if (b) if(c) d(); else e(); else f();
+            self.allow_wrap_or_preserved_newline(self.token_text, self.token_text in ['do', 'for', 'if', 'while']);
+
+            self.set_mode(MODE.Statement);
+            # Issue #275:
+            # If starting on a newline, all of a statement should be indented.
+            # if not, use line wrapping logic for indent.
+            if self.just_added_newline():
+                self.indent()
+                self.output_wrapped = False
+
             return True
         else:
             return False
@@ -982,6 +1000,14 @@ class Beautifier:
             else:
                 self.append_newline()
 
+            if self.is_expression(self.flags.mode):
+                # Issue #274
+                # (function inside expression that is not nested.
+                if not (self.is_expression(self.flags.parent.mode) or \
+                        self.is_array(self.flags.parent.mode)) and \
+                    self.line_indent_level < self.flags.indentation_level:
+                    self.deindent();
+
             self.append_token(token_text)
             self.flags.last_word = token_text
             return
@@ -990,7 +1016,7 @@ class Beautifier:
             self.append_newline()
             if self.flags.case_body or self.opts.jslint_happy:
                 self.flags.case_body = False
-                self.flags.indentation_level -= 1
+                self.deindent()
             self.append_token(token_text)
             self.flags.in_case = True
             self.flags.in_case_statement = True
@@ -1087,7 +1113,11 @@ class Beautifier:
 
 
     def handle_semicolon(self, token_text):
-        while self.flags.mode == MODE.Statement and not self.flags.if_block:
+        if self.start_of_statement():
+            # The conditional starts the statement if appropriate.
+            # Semicolon can be the start (and end) of a statement
+            self.output_space_before_token = False
+        while self.flags.mode == MODE.Statement and not self.flags.if_block and not self.flags.do_block:
             self.restore_mode()
 
         self.append_token(token_text)
@@ -1295,7 +1325,13 @@ class Beautifier:
             self.append_newline()
 
 
-
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
 
 
 def main():
@@ -1364,6 +1400,7 @@ def main():
             if outfile == 'stdout':
                 print(beautify_file(file, js_options))
             else:
+                mkdir_p(os.path.dirname(outfile))
                 with open(outfile, 'w') as f:
                     f.write(beautify_file(file, js_options) + '\n')
         except Exception as ex:
