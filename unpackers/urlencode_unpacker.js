@@ -9,7 +9,7 @@
 // if (Urlencoded.detect(some_string)) {
 //     var unpacked = Urlencoded.unpack(some_string);
 // }
-// 
+//
 //
 
 var isNode = (typeof module !== 'undefined' && module.exports);

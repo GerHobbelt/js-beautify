@@ -1,9 +1,9 @@
 
 define AVAILABLE_ACTIONS
 
-test:		test both implementations, js and python
-testp:		test python implementation
-testj:		test javascript implementation
+test:       test both implementations, js and python
+testp:      test python implementation
+testj:      test javascript implementation
 
 endef
 export AVAILABLE_ACTIONS
