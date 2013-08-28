@@ -6,7 +6,7 @@ var debug = process.env.DEBUG_JSBEAUTIFY || process.env.JSBEAUTIFY_DEBUG
 
 var fs = require('fs'),
     cc = require('config-chain'),
-    beautify = require('./beautify').js_beautify,
+    beautify = require('./index'),
     nopt = require('nopt'),
     path = require('path'),
     knownOpts = {
@@ -23,6 +23,10 @@ var fs = require('fs'),
         "keep_array_indentation": Boolean,
         "unescape_strings": Boolean,
         "wrap_line_length": Number,
+        // HTML-only
+        "max_char": Number,
+        "unformatted": [String, Array],
+        "indent_scripts": ["keep", "separate", "normal"],
         // CLI
         "version": Boolean,
         "help": Boolean,
@@ -30,6 +34,7 @@ var fs = require('fs'),
         "outfile": path,
         "replace": Boolean,
         "quiet": Boolean,
+        "type": ["js", "css", "html"],
         "config": path
     },
     // dasherizeShorthands provides { "indent-size": ["--indent_size"] }
@@ -48,12 +53,19 @@ var fs = require('fs'),
         "k": ["--keep_array_indentation"],
         "x": ["--unescape_strings"],
         "w": ["--wrap_line_length"],
+        // HTML-only
+        "W": ["--max_char"],
+        "U": ["--unformatted"],
+        "S": ["--indent_scripts"],
         // non-dasherized hybrid shortcuts
         "good-stuff": [
             "--keep_array_indentation",
             "--keep_function_indentation",
             "--jslint_happy"
         ],
+        "js"  : ["--type", "js"],
+        "css" : ["--type", "css"],
+        "html": ["--type", "html"],
         // CLI
         "v": ["--version"],
         "h": ["--help"],
@@ -87,19 +99,19 @@ var interpret = exports.interpret = function (argv, slice) {
 
     try {
         // Verify arguments
+        checkType(cfg);
         checkFiles(cfg);
         checkIndent(cfg);
         debug(cfg);
 
         // Process files synchronously to avoid EMFILE error
         cfg.files.forEach(processInputSync, { cfg: cfg });
-        logToStdout('\nBeautified ' + cfg.files.length + ' files', cfg);
     }
     catch (ex) {
         debug(cfg);
         // usage(ex);
         console.error(ex);
-        console.error('Run `js-beautify -h` for help.');
+        console.error('Run `' + getScriptName() + ' -h` for help.');
         process.exit(1);
     }
 };
@@ -110,34 +122,46 @@ if (require.main === module) {
 }
 
 function usage(err) {
+    var scriptName = getScriptName();
     var msg = [
-        'js-beautify@' + require('./package.json').version,
+        scriptName + '@' + require('./package.json').version,
         '',
         'CLI Options:',
         '  -f, --file       Input file(s) (Pass \'-\' for stdin)',
         '  -r, --replace    Write output in-place, replacing input',
         '  -o, --outfile    Write output to file (default stdout)',
         '  --config         Path to config file',
-        '  -q, --quiet      Suppress output to stdout',
+        '  --type           [js|css|html] ["js"]',
+        '  -q, --quiet      Suppress logging to stdout',
         '  -h, --help       Show this help',
         '  -v, --version    Show the version',
         '',
         'Beautifier Options:',
         '  -s, --indent-size             Indentation size [4]',
-        '  -c, --indent-char             Indentation character [" "]',
-        '  -l, --indent-level            Initial indentation level [0]',
-        '  -t, --indent-with-tabs        Indent with tabs, overrides -s and -c',
-        '  -p, --preserve-newlines       Preserve existing line-breaks (--no-preserve-newlines disables)',
-        '  -m, --max-preserve-newlines   Number of line-breaks to be preserved in one chunk [10]',
-        '  -j, --jslint-happy            Enable jslint-stricter mode',
-        '  -b, --brace-style             [collapse|expand|end-expand|expand-strict] ["collapse"]',
-        '  -B, --break-chained-methods   Break chained method calls across subsequent lines',
-        '  -k, --keep-array-indentation  Preserve array indentation',
-        '  -x, --unescape-strings        Decode printable characters encoded in xNN notation',
-        '  -w, --wrap-line-length        Wrap lines at next opportunity after N characters [0]',
-        '  --good-stuff                  Warm the cockles of Crockford\'s heart',
-        ''
+        '  -c, --indent-char             Indentation character [" "]'
     ];
+
+    switch (scriptName.split('-').shift()) {
+    case "js":
+        msg.push('  -l, --indent-level            Initial indentation level [0]');
+        msg.push('  -t, --indent-with-tabs        Indent with tabs, overrides -s and -c');
+        msg.push('  -p, --preserve-newlines       Preserve line-breaks (--no-preserve-newlines disables)');
+        msg.push('  -m, --max-preserve-newlines   Number of line-breaks to be preserved in one chunk [10]');
+        msg.push('  -j, --jslint-happy            Enable jslint-stricter mode');
+        msg.push('  -b, --brace-style             [collapse|expand|end-expand|expand-strict] ["collapse"]');
+        msg.push('  -B, --break-chained-methods   Break chained method calls across subsequent lines');
+        msg.push('  -k, --keep-array-indentation  Preserve array indentation');
+        msg.push('  -x, --unescape-strings        Decode printable characters encoded in xNN notation');
+        msg.push('  -w, --wrap-line-length        Wrap lines at next opportunity after N characters [0]');
+        msg.push('  --good-stuff                  Warm the cockles of Crockford\'s heart');
+        break;
+    case "html":
+        msg.push('  -b, --brace-style             [collapse|expand|end-expand] ["collapse"]');
+        msg.push('  -S, --indent-scripts          [keep|separate|normal] ["normal"]');
+        msg.push('  -W, --max-char                Maximum characters per line (0 disables) [250]');
+        msg.push('  -U, --unformatted             List of tags (defaults to inline) that should not be reformatted');
+        break;
+    }
 
     if (err) {
         msg.push(err);
@@ -181,7 +205,7 @@ function processInputSync(filepath) {
 
 function makePretty(code, config, outfile, callback) {
     try {
-        var pretty = beautify(code, config);
+        var pretty = beautify[config.type](code, config);
 
         // ensure newline at end of beautified output
         pretty += '\n';
@@ -250,6 +274,23 @@ function dasherizeShorthands(hash) {
     });
 
     return hash;
+}
+
+function getScriptName() {
+    return path.basename(process.argv[1]);
+}
+
+function checkType(parsed) {
+    var scriptType = getScriptName().split('-').shift();
+    debug("executable type:", scriptType);
+
+    var parsedType = parsed.type;
+    debug("parsed type:", parsedType);
+
+    if (!parsedType) {
+        debug("type defaulted:", scriptType);
+        parsed.type = scriptType;
+    }
 }
 
 function checkIndent(parsed) {

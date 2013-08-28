@@ -69,6 +69,8 @@ CLI Options:
   -r, --replace                 Write output in-place, replacing input
   -o, --outfile                 Write output to file (default stdout)
   --config                      Path to config file
+  --type                        [js|css|html] ["js"]
+  -q, --quiet                   Suppress logging to stdout
   -v, --version                 Show the version
   -h, --help                    Show this help
 
@@ -84,7 +86,8 @@ Beautifier Options:
   -B, --break-chained-methods   Break chained method calls across subsequent lines
   -k, --keep-array-indentation  Preserve array indentation
   -x, --unescape-strings        Decode printable characters encoded in xNN notation
-  -g, --good-stuff              Warm the cockles of Crockford's heart
+  -w, --wrap-line-length        Wrap lines at next opportunity after N characters [0]
+  --good-stuff                  Warm the cockles of Crockford's heart
 ```
 
 These largely correspond to the underscored option keys for both library interfaces, which have these defaults:
@@ -104,7 +107,8 @@ These largely correspond to the underscored option keys for both library interfa
     "space_before_conditional": true,
     "break_chained_methods": false,
     "eval_code": false,
-    "unescape_strings": false
+    "unescape_strings": false,
+    "wrap_line_length": 0
 }
 ```
 
@@ -117,6 +121,35 @@ In addition to CLI arguments, you may pass config to the JS executable via:
 Configuration sources provided earlier in this stack will override later ones.
 
 You might notice that the CLI options and defaults hash aren't 100% correlated. Historically, the Python and JS APIs have not been 100% identical. For example, `space_before_conditional` is currently JS-only, and not addressable from the CLI script. There are a few other additional cases keeping us from 100% API-compatibility. Patches welcome!
+
+#### CSS & HTML
+
+In addition to the `js-beautify` executable, `css-beautify` and `html-beautify` are also provided as an easy interface into those scripts. Alternatively, `js-beautify --css` or `js-beautify --html` will accomplish the same thing, respectively.
+
+```js
+// Programmatic access
+var beautify_js = require('js-beautify'); // also available under "js" export
+var beautify_css = require('js-beautify').css;
+var beautify_html = require('js-beautify').html;
+
+// All methods accept two arguments, the string to be beautified, and an options object.
+```
+
+The CSS & HTML beautifiers are much simpler in scope, and possess far fewer options.
+
+```text
+CSS Beautifier Options:
+  -s, --indent-size             Indentation size [4]
+  -c, --indent-char             Indentation character [" "]
+
+HTML Beautifier Options:
+  -s, --indent-size             Indentation size [4]
+  -c, --indent-char             Indentation character [" "]
+  -b, --brace-style             [collapse|expand|end-expand] ["collapse"]
+  -S, --indent-scripts          [keep|separate|normal] ["normal"]
+  -W, --max-char                Maximum characters per line (0 disables) [250]
+  -U, --unformatted             List of tags (defaults to inline) that should not be reformatted
+```
 
 ## License
 
