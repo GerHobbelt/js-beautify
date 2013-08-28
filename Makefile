@@ -24,6 +24,7 @@ testp:
 	echo Testing python implementation...
 	cd python ;\
 	python --version ;\
+	./jsbeautifier/tests/shell-smoke-test.sh && \
 	PYTHON=python ./js-beautify-test
 
 testj:
@@ -34,13 +35,13 @@ testj:
 
 edit:
 	vim \
-		beautify.js python/jsbeautifier/__init__.py \
-		tests/beautify-tests.js python/jsbeautifier/tests/testjsbeautifier.py
+		js/lib/beautify.js python/jsbeautifier/__init__.py \
+		js/test/beautify-tests.js python/jsbeautifier/tests/testjsbeautifier.py
 
 gedit:
 	gvim \
-		beautify.js \
-		tests/beautify-tests.js \
+		js/lib/beautify.js \
+		js/test/beautify-tests.js \
 		python/jsbeautifier/__init__.py \
 		python/jsbeautifier/tests/testjsbeautifier.py &
 

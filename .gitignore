@@ -1,6 +1,7 @@
 # Editor backup files
 *.bak
 *~
+*.orig
 
 # python compiler output
 *.pyc
@@ -8,4 +9,8 @@
 # NodeJS/NPM stuff
 node_modules
 gh-pages
+
+python/MANIFEST
+python/build
+python/dist
 

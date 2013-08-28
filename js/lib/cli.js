@@ -38,7 +38,7 @@ var debug = process.env.DEBUG_JSBEAUTIFY || process.env.JSBEAUTIFY_DEBUG
 
 var fs = require('fs'),
     cc = require('config-chain'),
-    beautify = require('./index'),
+    beautify = require('../index'),
     nopt = require('nopt'),
     path = require('path'),
     knownOpts = {
@@ -113,7 +113,7 @@ var interpret = exports.interpret = function (argv, slice) {
     var parsed = nopt(knownOpts, shortHands, argv, slice);
 
     if (parsed.version) {
-        console.log(require('./package.json').version);
+        console.log(require('../../package.json').version);
         process.exit(0);
     }
     else if (parsed.help) {
@@ -126,7 +126,8 @@ var interpret = exports.interpret = function (argv, slice) {
         cleanOptions(cc.env('jsbeautify_'), knownOpts),
         parsed.config,
         cc.find('.jsbeautifyrc'),
-        __dirname + '/config/defaults.json'
+        cc.find(path.join(process.env.HOME, ".jsbeautifyrc")),
+        __dirname + '/../config/defaults.json'
     ).snapshot;
 
     try {
@@ -156,7 +157,7 @@ if (require.main === module) {
 function usage(err) {
     var scriptName = getScriptName();
     var msg = [
-        scriptName + '@' + require('./package.json').version,
+        scriptName + '@' + require('../../package.json').version,
         '',
         'CLI Options:',
         '  -f, --file       Input file(s) (Pass \'-\' for stdin)',

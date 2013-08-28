@@ -14,7 +14,7 @@
 
 var isNode = (typeof module !== 'undefined' && module.exports);
 if (isNode) {
-    var SanityTest = require(__dirname + '/../tests/sanitytest');
+    var SanityTest = require(__dirname + '/../../test/sanitytest');
 }
 
 var Urlencoded = {
