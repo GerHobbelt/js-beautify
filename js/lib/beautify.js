@@ -163,12 +163,14 @@
                 indentation_level: next_indent_level,
                 line_indent_level: flags_base ? flags_base.line_indent_level : next_indent_level,
                 start_line_index: output_lines.length,
+                had_comment: false,
                 ternary_depth: 0
             }
             return next_flags;
         }
 
         // Using object instead of string to allow for later expansion of info about each line
+
         function create_output_line() {
             return {
                 text: []
@@ -202,11 +204,15 @@
         opt.space_in_paren = (options.space_in_paren === undefined) ? false : options.space_in_paren;
         opt.jslint_happy = (options.jslint_happy === undefined) ? false : options.jslint_happy;
         opt.keep_array_indentation = (options.keep_array_indentation === undefined) ? false : options.keep_array_indentation;
-        opt.space_before_conditional= (options.space_before_conditional === undefined) ? true : options.space_before_conditional;
+        opt.space_before_conditional = (options.space_before_conditional === undefined) ? true : options.space_before_conditional;
         opt.unescape_strings = (options.unescape_strings === undefined) ? false : options.unescape_strings;
         opt.wrap_line_length = (options.wrap_line_length === undefined) ? 0 : parseInt(options.wrap_line_length, 10);
         opt.e4x = (options.e4x === undefined) ? false : options.e4x;
 
+        if(options.indent_with_tabs){
+            opt.indent_char = '\t';
+            opt.indent_size = 1;
+        }
 
         //----------------------------------
         indent_string = '';
@@ -245,7 +251,7 @@
 
         parser_pos = 0;
 
-        this.beautify = function () {
+        this.beautify = function() {
             /*jshint onevar:true */
             var t, i, keep_whitespace, sweet_code;
 
@@ -286,11 +292,13 @@
                 // Just continue formatting and the behavior should be logical.
                 // Also ignore unknown tokens.  Again, this should result in better behavior.
                 if (token_type !== 'TK_INLINE_COMMENT' && token_type !== 'TK_COMMENT' &&
-                    token_type !== 'TK_UNKNOWN') {
+                    token_type !== 'TK_BLOCK_COMMENT' && token_type !== 'TK_UNKNOWN') {
                     last_last_text = flags.last_text;
                     last_type = token_type;
                     flags.last_text = token_text;
                 }
+                flags.had_comment = (token_type === 'TK_INLINE_COMMENT' || token_type === 'TK_COMMENT'
+                    || token_type === 'TK_BLOCK_COMMENT');
             }
 
 
@@ -299,13 +307,13 @@
                 sweet_code += '\n' + output_lines[line_index].text.join('');
             }
             sweet_code = sweet_code.replace(/[\r\n ]+$/, '');
-            return sweet_code ;
+            return sweet_code;
         };
 
         function trim_output(eat_newlines) {
             eat_newlines = (eat_newlines === undefined) ? false : eat_newlines;
 
-            if(output_lines.length) {
+            if (output_lines.length) {
                 trim_output_line(output_lines[output_lines.length - 1], eat_newlines);
 
                 while (eat_newlines && output_lines.length > 1 &&
@@ -319,7 +327,7 @@
         function trim_output_line(line) {
             while (line.text.length &&
                 (line.text[line.text.length - 1] === ' ' ||
-                    line.text[line.text.length - 1] === indent_string   ||
+                    line.text[line.text.length - 1] === indent_string ||
                     line.text[line.text.length - 1] === preindent_string)) {
                 line.text.pop();
             }
@@ -357,7 +365,7 @@
         function just_added_blankline() {
             if (just_added_newline()) {
                 if (output_lines.length === 1) {
-                    return true;  // start of the file and newline = blank
+                    return true; // start of the file and newline = blank
                 }
 
                 var line = output_lines[output_lines.length - 2];
@@ -384,7 +392,7 @@
                 print_newline(false, true);
 
                 // Expressions and array literals already indent their contents.
-                if(! (is_array(flags.mode) || is_expression(flags.mode))) {
+                if (!(is_array(flags.mode) || is_expression(flags.mode))) {
                     output_wrapped = true;
                 }
             }
@@ -395,7 +403,7 @@
             output_space_before_token = false;
 
             if (!preserve_statement_flags) {
-                if  (flags.last_text !== ';') {
+                if (flags.last_text !== ';') {
                     while (flags.mode === MODE.Statement && !flags.if_block && !flags.do_block) {
                         restore_mode();
                     }
@@ -481,7 +489,7 @@
             //           after wrap points are calculated
             // These issues are minor compared to ugly indentation.
 
-            if(frame.multiline_frame) return;
+            if (frame.multiline_frame) return;
 
             // remove one indent from each line inside this section
             var index = frame.start_line_index;
@@ -537,11 +545,16 @@
             }
         }
 
+        function start_of_object_property() {
+            return flags.mode === MODE.ObjectLiteral && flags.last_text === ':' &&
+                flags.ternary_depth === 0;
+        }
+
         function start_of_statement() {
             if (
-             (flags.last_text === 'do' ||
-                 (flags.last_text === 'else' && token_text !== 'if') ||
-                (last_type === 'TK_END_EXPR' && (previous_flags.mode === MODE.ForInitializer || previous_flags.mode === MODE.Conditional)))) {
+                (flags.last_text === 'do' ||
+                    (flags.last_text === 'else' && token_text !== 'if') ||
+                    (last_type === 'TK_END_EXPR' && (previous_flags.mode === MODE.ForInitializer || previous_flags.mode === MODE.Conditional)))) {
                 // Issue #276:
                 // If starting a new statement with [if, for, while, do], push to a new line.
                 // if (a) if (b) if(c) d(); else e(); else f();
@@ -552,7 +565,7 @@
                 // Issue #275:
                 // If starting on a newline, all of a statement should be indented.
                 // if not, use line wrapping logic for indent.
-                if(just_added_newline()) {
+                if (just_added_newline()) {
                     indent();
                     output_wrapped = false;
                 }
@@ -790,12 +803,13 @@
             if (c === "'" || c === '"' || // string
                 (
                     (c === '/') || // regexp
-                    (opt.e4x && c ==="<" && input.slice(parser_pos - 1).match(/^<([a-zA-Z:0-9]+|{[^{}]*}|!\[CDATA\[[\s\S]*?\]\])\s*([a-zA-Z:0-9]+=('[^']*'|"[^"]*"|{[^{}]*})\s*)*\/?\s*>/)) // xml
+                    (opt.e4x && c === "<" && input.slice(parser_pos - 1).match(/^<([-a-zA-Z:0-9_.]+|{[^{}]*}|!\[CDATA\[[\s\S]*?\]\])\s*([-a-zA-Z:0-9_.]+=('[^']*'|"[^"]*"|{[^{}]*})\s*)*\/?\s*>/)) // xml
                 ) && ( // regex and xml can only appear in specific locations during parsing
-                    (last_type === 'TK_WORD' && is_special_word (flags.last_text)) ||
+                    (last_type === 'TK_WORD' && is_special_word(flags.last_text)) ||
                     (last_type === 'TK_END_EXPR' && in_array(previous_flags.mode, [MODE.Conditional, MODE.ForInitializer])) ||
                     (in_array(last_type, ['TK_COMMENT', 'TK_START_EXPR', 'TK_START_BLOCK',
-                    'TK_END_BLOCK', 'TK_OPERATOR', 'TK_EQUALS', 'TK_EOF', 'TK_SEMICOLON', 'TK_COMMA']))
+                        'TK_END_BLOCK', 'TK_OPERATOR', 'TK_EQUALS', 'TK_EOF', 'TK_SEMICOLON', 'TK_COMMA'
+                    ]))
                 )) {
 
                 var sep = c,
@@ -833,7 +847,7 @@
                         //
                         // handle e4x xml literals
                         //
-                        var xmlRegExp = /<(\/?)([a-zA-Z:0-9]+|{[^{}]*}|!\[CDATA\[[\s\S]*?\]\])\s*([a-zA-Z:0-9]+=('[^']*'|"[^"]*"|{[^{}]*})\s*)*(\/?)\s*>/g;
+                        var xmlRegExp = /<(\/?)([-a-zA-Z:0-9_.]+|{[^{}]*}|!\[CDATA\[[\s\S]*?\]\])\s*([-a-zA-Z:0-9_.]+=('[^']*'|"[^"]*"|{[^{}]*})\s*)*(\/?)\s*>/g;
                         var xmlStr = input.slice(parser_pos - 1);
                         var match = xmlRegExp.exec(xmlStr);
                         if (match && match.index === 0) {
@@ -842,7 +856,7 @@
                             while (match) {
                                 var isEndTag = !! match[1];
                                 var tagName = match[2];
-                                var isSingletonTag = (!! match[match.length - 1]) || (tagName.slice(0, 8) === "![CDATA[");
+                                var isSingletonTag = ( !! match[match.length - 1]) || (tagName.slice(0, 8) === "![CDATA[");
                                 if (tagName === rootTag && !isSingletonTag) {
                                     if (isEndTag) {
                                         --depth;
@@ -994,7 +1008,7 @@
                 if (last_type === 'TK_WORD' || flags.last_text === ')') {
                     // this is array index specifier, break immediately
                     // a[x], fn()[x]
-                    if (in_array (flags.last_text, line_starters)) {
+                    if (in_array(flags.last_text, line_starters)) {
                         output_space_before_token = true;
                     }
                     set_mode(next_mode);
@@ -1019,16 +1033,16 @@
                 }
 
             } else {
-                if  (flags.last_text === 'for') {
+                if (flags.last_text === 'for') {
                     next_mode = MODE.ForInitializer;
-                } else if (in_array (flags.last_text, ['if', 'while'])) {
+                } else if (in_array(flags.last_text, ['if', 'while'])) {
                     next_mode = MODE.Conditional;
                 } else {
                     // next_mode = MODE.Expression;
                 }
             }
 
-            if  (flags.last_text === ';' || last_type === 'TK_START_BLOCK') {
+            if (flags.last_text === ';' || last_type === 'TK_START_BLOCK') {
                 print_newline();
             } else if (last_type === 'TK_END_EXPR' || last_type === 'TK_START_EXPR' || last_type === 'TK_END_BLOCK' || flags.last_text === '.') {
                 // TODO: Consider whether forcing this is required.  Review failing tests when removed.
@@ -1042,7 +1056,7 @@
                 if (opt.jslint_happy) {
                     output_space_before_token = true;
                 }
-            } else if (in_array (flags.last_text, line_starters) || flags.last_text === 'catch') {
+            } else if (in_array(flags.last_text, line_starters) || flags.last_text === 'catch') {
                 if (opt.space_before_conditional) {
                     output_space_before_token = true;
                 }
@@ -1053,7 +1067,7 @@
             //     (c || d));
             if (token_text === '(') {
                 if (last_type === 'TK_EQUALS' || last_type === 'TK_OPERATOR') {
-                    if (flags.mode !== MODE.ObjectLiteral) {
+                    if (!start_of_object_property()) {
                         allow_wrap_or_preserved_newline();
                     }
                 }
@@ -1084,7 +1098,13 @@
                 allow_wrap_or_preserved_newline();
             }
             if (opt.space_in_paren) {
-                output_space_before_token = true;
+                if (last_type === 'TK_START_EXPR') {
+                    // () [] no inner space in empty parens like these, ever, ref #320
+                    trim_output();
+                    output_space_before_token = false;
+                } else {
+                    output_space_before_token = true;
+                }
             }
             if (token_text === ']' && opt.keep_array_indentation) {
                 print_token();
@@ -1115,8 +1135,8 @@
                 if (last_type !== 'TK_OPERATOR' &&
                     (empty_anonymous_function ||
                         last_type === 'TK_EQUALS' ||
-                        (is_special_word (flags.last_text) && flags.last_text !== 'else'))) {
-                        output_space_before_token = true;
+                        (is_special_word(flags.last_text) && flags.last_text !== 'else'))) {
+                    output_space_before_token = true;
                 } else {
                     print_newline();
                 }
@@ -1151,7 +1171,7 @@
             var empty_braces = last_type === 'TK_START_BLOCK';
 
             if (opt.brace_style === "expand") {
-                if  (!empty_braces) {
+                if (!empty_braces) {
                     print_newline();
                 }
             } else {
@@ -1228,17 +1248,16 @@
                 if (flags.var_line && last_type !== 'TK_EQUALS') {
                     flags.var_line_reindented = true;
                 }
-                if ((just_added_newline() || flags.last_text === ';' || flags.last_text === '}') &&
-                    flags.last_text !== '{' && !is_array(flags.mode)) {
+                if (in_array(flags.last_text, ['}', ';']) || (just_added_newline() && ! in_array(flags.last_text, ['{', ':', '=', ',']))) {
                     // make sure there is a nice clean space of at least one blank line
-                    // before a new function definition, except in arrays
-                    if(!just_added_blankline()) {
+                    // before a new function definition
+                    if ( ! just_added_blankline() && ! flags.had_comment) {
                         print_newline();
                         print_newline(true);
                     }
                 }
                 if (last_type === 'TK_WORD') {
-                    if  (flags.last_text === 'get' || flags.last_text === 'set' || flags.last_text === 'new' || flags.last_text === 'return') {
+                    if (flags.last_text === 'get' || flags.last_text === 'set' || flags.last_text === 'new' || flags.last_text === 'return') {
                         output_space_before_token = true;
                     } else {
                         print_newline();
@@ -1254,7 +1273,7 @@
             }
 
             if (last_type === 'TK_COMMA' || last_type === 'TK_START_EXPR' || last_type === 'TK_EQUALS' || last_type === 'TK_OPERATOR') {
-                if (flags.mode !== MODE.ObjectLiteral) {
+                if (!start_of_object_property()) {
                     allow_wrap_or_preserved_newline();
                 }
             }
@@ -1295,7 +1314,7 @@
             }
 
             if (in_array(token_text, line_starters) && flags.last_text !== ')') {
-                if  (flags.last_text === 'else') {
+                if (flags.last_text === 'else') {
                     prefix = 'SPACE';
                 } else {
                     prefix = 'NEWLINE';
@@ -1317,7 +1336,7 @@
                     output_space_before_token = true;
                 }
             } else if (prefix === 'NEWLINE') {
-                if (is_special_word (flags.last_text)) {
+                if (is_special_word(flags.last_text)) {
                     // no newline between 'return nnn'
                     output_space_before_token = true;
                 } else if (last_type !== 'TK_END_EXPR') {
@@ -1387,7 +1406,7 @@
             } else if (last_type === 'TK_WORD') {
                 output_space_before_token = true;
             } else if (last_type === 'TK_COMMA' || last_type === 'TK_START_EXPR' || last_type === 'TK_EQUALS' || last_type === 'TK_OPERATOR') {
-                if (flags.mode !== MODE.ObjectLiteral) {
+                if (!start_of_object_property()) {
                     allow_wrap_or_preserved_newline();
                 }
             } else {
@@ -1450,7 +1469,7 @@
         function handle_operator() {
             var space_before = true;
             var space_after = true;
-            if (is_special_word (flags.last_text)) {
+            if (is_special_word(flags.last_text)) {
                 // "return" had a special handling in TK_WORD. Now we need to return the favor
                 output_space_before_token = true;
                 print_token();
@@ -1484,23 +1503,23 @@
                 print_newline();
             }
 
-            if (in_array(token_text, ['--', '++', '!']) || (in_array(token_text, ['-', '+']) && (in_array(last_type, ['TK_START_BLOCK', 'TK_START_EXPR', 'TK_EQUALS', 'TK_OPERATOR']) || in_array (flags.last_text, line_starters) || flags.last_text === ','))) {
+            if (in_array(token_text, ['--', '++', '!']) || (in_array(token_text, ['-', '+']) && (in_array(last_type, ['TK_START_BLOCK', 'TK_START_EXPR', 'TK_EQUALS', 'TK_OPERATOR']) || in_array(flags.last_text, line_starters) || flags.last_text === ','))) {
                 // unary operators (and binary +/- pretending to be unary) special cases
 
                 space_before = false;
                 space_after = false;
 
-                if  (flags.last_text === ';' && is_expression(flags.mode)) {
+                if (flags.last_text === ';' && is_expression(flags.mode)) {
                     // for (;; ++i)
                     //        ^^^
                     space_before = true;
                 }
 
-                if (last_type === 'TK_WORD' && in_array (flags.last_text, line_starters)) {
+                if (last_type === 'TK_WORD' && in_array(flags.last_text, line_starters)) {
                     space_before = true;
                 }
 
-                if ((flags.mode === MODE.BlockStatement || flags.mode === MODE.Statement) &&  (flags.last_text === '{' || flags.last_text === ';')) {
+                if ((flags.mode === MODE.BlockStatement || flags.mode === MODE.Statement) && (flags.last_text === '{' || flags.last_text === ';')) {
                     // { foo; --i }
                     // foo(); --bar;
                     print_newline();
@@ -1571,12 +1590,12 @@
         }
 
         function handle_dot() {
-            if (is_special_word (flags.last_text)) {
+            if (is_special_word(flags.last_text)) {
                 output_space_before_token = true;
             } else {
                 // allow preserved newlines before dots in general
                 // force newlines on dots after close paren when break_chained - for bar().baz()
-                allow_wrap_or_preserved_newline (flags.last_text === ')' && opt.break_chained_methods);
+                allow_wrap_or_preserved_newline(flags.last_text === ')' && opt.break_chained_methods);
             }
 
             print_token();
@@ -1594,7 +1613,7 @@
 
     if (typeof define === "function") {
         // Add support for require.js
-        if(typeof define.amd === "undefined") {
+        if (typeof define.amd === "undefined") {
             define(function(require, exports, module) {
                 exports.js_beautify = js_beautify;
             });

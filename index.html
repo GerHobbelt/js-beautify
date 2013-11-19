@@ -138,12 +138,11 @@
 
         function run_tests() {
             var st = new SanityTest();
-            run_beautifier_tests(st, Urlencoded, js_beautify);
+            run_beautifier_tests(st, Urlencoded, js_beautify, html_beautify);
             JavascriptObfuscator.run_tests(st);
             P_A_C_K_E_R.run_tests(st);
             Urlencoded.run_tests(st);
             MyObfuscate.run_tests(st);
-            // $('#testresults').html(results.replace(/r/g, '').replace(/\n/g, '<br>'));
             var results = st.results_raw().replace(/ /g, '&nbsp;').replace(/\r/g, '·').replace(/\n/g, '<br>');
             $('#testresults').html(results).show();
         }
@@ -205,7 +204,7 @@
                 }
             } while (found);
 
-            var unpackers = [P_A_C_K_E_R, Urlencoded, JavascriptObfuscator, MyObfuscate];
+            var unpackers = [P_A_C_K_E_R, Urlencoded, /*JavascriptObfuscator,*/ MyObfuscate];
             for (var i = 0; i < unpackers.length; i++) {
                 if (unpackers[i].detect(source)) {
                     unpacked = unpackers[i].unpack(source);
@@ -415,7 +414,8 @@
                     <a href="https://github.com/drewhjava/netbeans-jsbeautify">github</a>).</li>
                 <li><a href="https://github.com/drewhjava/brackets-beautify">brackets-beautify-extension</a> for <a href="http://brackets.io">Adobe Brackets</a> by Drew
                     Hamlett (<a href="https://github.com/drewhjava/brackets-beautify">github</a>),</li>
-                <li><a href="http://codecaddy.net/">codecaddy.net</a>, a collection of webdev-related tools, assembled by Darik Hall.
+                <li><a href="http://codecaddy.net/">codecaddy.net</a>, a collection of webdev-related tools, assembled by Darik Hall,
+                <li><a href="http://www.editey.com/">www.editey.com</a>, an interesting and free Google-Drive oriented editor uses this beautifier.
                 <li class="writeme">Doing anything interesting? Write me to einar@jsbeautifier.org and I'll include your link.</li>
         </ul>
 
