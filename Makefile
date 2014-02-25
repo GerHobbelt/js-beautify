@@ -1,7 +1,7 @@
 
 define AVAILABLE_ACTIONS
 
-build:		do static checking and build of js
+build:      do static checking and build of js
 test:       test both implementations, js and python
 testp:      test python implementation
 testj:      test javascript implementation
