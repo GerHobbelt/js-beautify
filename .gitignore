@@ -2,7 +2,16 @@
 *.bak
 *~
 
+
+
+*.orig
+node_modules
+gh-pages
+
 # python compiler output
 *.pyc
-
+python/MANIFEST
+python/build
+python/dist
+python/jsbeautifier.egg-info
 
